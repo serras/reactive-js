@@ -1,0 +1,4 @@
+#!/bin/bash
+
+arrowp < ${1} > ${1/.hs/.no-arrows.hs}
+uhc -t jscript ${1/.hs/.no-arrows.hs}

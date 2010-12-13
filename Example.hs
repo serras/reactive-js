@@ -4,6 +4,8 @@ import AFRP
 import Control.Arrow
 
 import Data.IORef
+-- I would use a Map instead of [(a,b)], but it's not available
+-- import Data.Map
 
 import Control.Category
 import Prelude hiding (id, (.))
@@ -14,12 +16,119 @@ data JSRawInput = JSRawInput {
         jsMousePosition :: (Int, Int)
     }
 data JSResponse = JSInit
-data JSRequest  = JSSetTextRequest 
+                | JSLabelCreateResp
+                | JSDeComp (Event JSResponse,Event JSResponse)
+data JSRequest  = JSLabelCreateReq JSLabelState
+                | JSLabelSetReq JSLabelState
+                | JSComp (Event JSRequest,Event JSRequest)
 
 type Responder a b = SF (JSRawInput, Event JSResponse, a) (Event JSRequest, b)
+
+-- for now our GUI is just a map of elements, no layout
 newtype JSGUI a b = JSGUI (Responder a b)
 
+-- Lifting/lowering
+
+jsUnGUI :: JSGUI b c -> Responder b c
+jsUnGUI (JSGUI w) = w
+
+jsSF :: SF b c -> JSGUI b c
+jsSF sf = JSGUI $ proc (_,_,b) -> do
+  c <- sf -< b
+  returnA -< (noEvent,c)
+
+jsArr :: (b -> c) -> JSGUI b c
+jsArr f = jsSF (arr f)
+
+jsFirst :: JSGUI b c -> JSGUI (b,d) (c,d)
+jsFirst (JSGUI w) = JSGUI $ proc (inp,resp,(b,d)) -> do
+  (req,c) <- w -< (inp,resp,b)
+  returnA -< (req,(c,d))
+
+decompResp :: Event JSResponse -> (Event JSResponse,Event JSResponse)
+decompResp (Event JSInit) = (Event JSInit, Event JSInit)
+decompResp (Event (JSDeComp (resp0,resp1))) = (resp0,resp1)
+decompResp _ = (noEvent,noEvent)
+
+compReq :: Event JSRequest -> Event JSRequest -> Event JSRequest
+compReq NoEvent NoEvent = noEvent
+compReq req0 req1 = Event (JSComp (req0,req1))
+
+jsComp :: JSGUI b c -> JSGUI c d -> JSGUI b d
+jsComp (JSGUI w1) (JSGUI w2) = JSGUI $ proc (inp,resp,b) -> do
+  let (resp1,resp2) = decompResp resp
+  (req1,c) <- w1 -< (inp,resp1,b)
+  (req2,d) <- w2 -< (inp,resp2,c)
+  returnA -< (compReq req1 req2,d)
+
+jsLoop :: JSGUI (b,d) (c,d) -> JSGUI b c
+jsLoop (JSGUI w) = JSGUI $ proc (inp,resp,b) -> do
+  rec (req,(c,d)) <- w -< (inp,resp,(b,d))
+  returnA -< (req,c)
+
+instance Category JSGUI where
+  (.) = flip jsComp
+  id  = arr Prelude.id
+
+instance Arrow JSGUI where
+  arr   = jsArr
+  first = jsFirst
+
+instance ArrowLoop JSGUI where
+  loop = jsLoop
+
 type JSRHandle = ReactHandle (JSRawInput, Event JSResponse, ()) (Event JSRequest, ())
+
+-----------------------------------------------------------
+-- Static text (label) widget: Displays a string, and has
+-- no output.
+
+-- State
+
+data JSLabelState = JSLabelState {
+     labelDiv  :: String,
+     labelText :: String   
+  } deriving (Eq, Show)
+
+type JSLabelConf = JSLabelState -> JSLabelState
+
+-- Constructor
+
+label :: String -> JSLabelConf
+label text ls = ls {labelText = text}
+
+div_ :: String -> JSLabelConf
+div_ div ls = ls {labelDiv = div}
+
+-- The label GUI
+
+jsLabel :: JSLabelConf -> JSGUI JSLabelConf ()
+jsLabel conf0 = 
+  let -- Initial state
+      defState = JSLabelState {labelDiv = "label", labelText = "Default"}
+      initState = conf0 defState
+      
+      -- Detect creation
+      maybeCreate JSLabelCreateResp = Just True
+      maybeCreate _ = Nothing
+  
+  in JSGUI $ proc (_,resp,conf) -> do
+    -- State
+    rec state <- iPre initState -< conf state
+    stateChanged <- edgeBy maybeChanged initState -< state
+    
+    -- Creation
+    isCreated <- hold False -< mapFilterE maybeCreate resp
+    let doCreate = if isCreated then noEvent else Event ()
+    
+    -- Output
+    let req = lMerge (tag doCreate (JSLabelCreateReq state))
+                     (tag stateChanged (JSLabelSetReq state))
+    returnA -< (req,())
+
+jsMouse :: JSGUI () (Int, Int)
+jsMouse = JSGUI $ proc (inp,_,_) -> do
+  returnA -< (noEvent, jsMousePosition inp)
 
 type JSGUIState = Int
 type JSGUIRef = IORef JSGUIState
@@ -30,6 +139,7 @@ startGUI (JSGUI g) = do
     epoch <- getCurrentTime
     gsr <- newIORef epoch
     rh <- reactInit initSense (actuate gsr) g
+    addEvent (stringToJSString "") (stringToJSString "timeout") gsr rh NoEvent
     return ()
 
 -- Get an input sample from the OS.
@@ -67,32 +177,75 @@ respond gsr rh resp = do
 actuate :: JSGUIRef -> JSRHandle -> Bool -> (Event JSRequest,()) -> IO Bool
 actuate gsr rh _ (wre,_) = 
   do -- Handle requests, if any.
-     --(f,t,prevc) <- readIORef gsr
-     --(resp,c,cch) <- handleWidgetReq gsr rh f [] prevc wre
+     t <- readIORef gsr
+     resp <- handleWidgetReq gsr rh wre
      
      -- Reset layout if contents changed.
      -- *No layouting in this example*
      
      -- Turn around and respond to the widgets, if necessary.
      -- Note that this causes a reentrant call to react.
-     --case resp of
-     --  NoEvent -> return ()
-     --  _ -> respond gsr rh resp
+     case resp of
+       NoEvent -> return ()
+       _ -> respond gsr rh resp
      
      return False
 
+
+handleWidgetReq :: JSGUIRef -> JSRHandle -> (Event JSRequest) -> IO (Event JSResponse)
+handleWidgetReq _ _ NoEvent                      = return NoEvent
+handleWidgetReq _ _ (Event (JSLabelCreateReq t)) = do
+    changeText (stringToJSString . labelDiv $ t) (stringToJSString . labelText $ t)
+    return $ Event JSLabelCreateResp
+handleWidgetReq _ _ (Event (JSLabelSetReq t))    = do
+    changeText (stringToJSString . labelDiv $ t) (stringToJSString . labelText $ t)
+    return NoEvent
+
 ------------------------------------------------------------------
 -- Utility functions from Yampa, UHC blog and Javascript reference
+
 
 type JSString = PackedString
 stringToJSString :: String -> JSString
 jsStringToString :: JSString -> String
 
-foreign import jscript "getCurrentTime()"  getCurrentTime :: IO Int
-foreign import jscript "mouseX()"          getMouseX      :: IO Int
-foreign import jscript "mouseY()"          getMouseY      :: IO Int
-foreign import jscript "setInterval(%*)"   setInterval    :: (a -> ()) -> Int -> IO Int
-foreign import jscript "clearInterval(%*)" clearInterval  :: Int -> IO ()
+foreign import jscript "getCurrentTime()" getCurrentTime :: IO Int
+foreign import jscript "mouseX()"         getMouseX      :: IO Int
+foreign import jscript "mouseY()"         getMouseY      :: IO Int
+foreign import jscript "addEvent(%*)"     addEvent       :: JSString -> JSString -> JSGUIRef -> JSRHandle -> Event JSResponse -> IO ()
+foreign import jscript "changeText(%*)"   changeText     :: JSString -> JSString -> IO ()
+
+
+------------------------------------
+-- Fake code for compiling in GHC --
+------------------------------------
+
+{-
+type JSString = String
+stringToJSString :: String -> JSString
+stringToJSString = id
+jsStringToString :: JSString -> String
+jsStringToString = id
+
+getCurrentTime :: IO Int
+getCurrentTime = return 3
+getMouseX = getCurrentTime
+getMouseY = getCurrentTime
+
+addEvent :: JSString -> JSString -> JSGUIRef -> JSRHandle -> Event JSResponse -> IO ()
+addEvent _ _ _ _ _ = return ()
+
+changeText :: JSString -> JSString -> IO ()
+changeText _ _ = return ()
+-}
+
+-- UNTIL HERE --
+----------------
+
+
+-- Utility to detect when a widget's state has changed
+maybeChanged :: Eq a => a -> a -> Maybe ()
+maybeChanged s s' = if s == s' then Nothing else Just ()
 
 -- ensure an observable amount of time elapses by busy-waiting.
 --
@@ -116,3 +269,17 @@ ensureTimeElapses t0 t1 getTime = do
                else do t' <- getTime
                        ensureTimeElapses t0 t' getTime
 
+
+
+-----------------
+-- THE EXAMPLE --
+-----------------
+
+example :: JSGUI () ()
+example = proc _ -> do
+    rec mpos <- jsMouse -< ()
+        _ <- jsLabel (div_ "example") -< (label $ show (fst mpos))
+    returnA -< ()
+
+main :: IO ()
+main = startGUI example
