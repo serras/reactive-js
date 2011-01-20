@@ -1,13 +1,21 @@
-function getCurrentTime() {
+var lib=
+ (lib ? lib : {});
+
+lib.alert = function(s) {
+    window.alert(s);
+};
+
+lib.getCurrentTime = function() {
     var d = new Date();
     return d.getTime();
-}
+};
 
-function mousePosition() {
-    var posx = 0;
+lib.mousePosition = function() {
+    /* var posx = 0;
 	var posy = 0;
+	var e = jQuery.event;
 	if (!e) var e = window.event;
-	if (e.pageX || e.pageY) 	{
+	if (e.pageX || e.pageY) {
 		posx = e.pageX;
 		posy = e.pageY;
 	}
@@ -20,28 +28,43 @@ function mousePosition() {
 	// posx and posy contain the mouse position relative to the document
 	// Do something with this information
 	
-	return [posx, posy];
-}
+	return [posx, posy]; */
+	
+	/*
+	var doc = $(document);
+	return [doc.pageX, doc.pageY];
+	*/
+	
+	return [2,4];
+};
 
-function mouseX() {
-    var position = mousePosition();
+lib.mouseX = function() {
+    var position = lib.mousePosition();
     return position[0];
-}
+};
 
-function mouseY() {
-    var position = mousePosition();
+lib.mouseY = function() {
+    var position = lib.mousePosition();
     return position[1];
-}
+};
 
-function changeText(div, text) {
+lib.changeText = function(div, text) {
     document.getElementById(div).innerHTML = text;
-}
+};
 
-function addEvent(div, event, guiref, rhandle, response) {
-    if (event == "timeout") {
+lib.state = undefined;
+lib.setState = function(t) {
+    lib.state = t;
+};
+lib.getState = function() {
+    return lib.state;
+};
+
+lib.addEvent = function(ev_name) {
+    if (ev_name == "timeout") {
         var closure = function() {
-            respond(guiref, rhandle, response);
-        }
+            eventCallback(ev_name);
+        };
         setTimeout(closure, 30);
     }
-}
+};

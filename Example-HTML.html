@@ -1,0 +1,49 @@
+<!DOCTYPE html><html><head><title>Example</title>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/jscript/libEH-RTS.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Base.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Char.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Enum.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Float.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_MutVar.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Read.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_ST.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_STRef.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Show.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_StackTrace.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Types.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Ptr.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_ByteArray.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_IOBase.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_OldException.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_OldIO.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Run.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/Generics/UHC_Generics_Tuple.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Generics.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Bounded.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Eq.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/UHC/UHC_Ord.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/Data/Data_Maybe.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/Data/Data_IORef.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/uhcbase-1.1.2/uhc-1.1.2/jscript/plain/Control/Control_Monad.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/base-3.0.0.0/uhc-1.1.2/jscript/plain/Prelude.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/base-3.0.0.0/uhc-1.1.2/jscript/plain/Control/Control_Category.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/base-3.0.0.0/uhc-1.1.2/jscript/plain/Control/Monad/Control_Monad_Instances.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/base-3.0.0.0/uhc-1.1.2/jscript/plain/Data/Data_Function.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/base-3.0.0.0/uhc-1.1.2/jscript/plain/Control/Monad/Control_Monad_Fix.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/base-3.0.0.0/uhc-1.1.2/jscript/plain/Control/Control_Arrow.mjs"></script>
+<script type="text/javascript" src="/usr/local/lib/uhc-1.1.2/lib/pkg/haskell98-1.0.1.1/uhc-1.1.2/jscript/plain/Monad.mjs"></script>
+<script type="text/javascript" src="jquery-1.4.3.js"></script>
+<script type="text/javascript" src="lib.js"></script>
+<script type="text/javascript" src="AFRPMiscellany.mjs"></script>
+<script type="text/javascript" src="AFRPForceable.mjs"></script>
+<script type="text/javascript" src="AFRPDiagnostics.mjs"></script>
+<script type="text/javascript" src="AFRPEvent.mjs"></script>
+<script type="text/javascript" src="AFRP.mjs"></script>
+<script type="text/javascript" src="Example.no-arrows.js"></script>
+<script type="text/javascript">
+$(document).ready(jQueryMain);
+</script>
+</head>
+<body>
+</body>
+</html>

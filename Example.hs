@@ -13,8 +13,9 @@ import qualified Prelude (id, (.))
 
 
 data JSRawInput = JSRawInput {
-        jsMousePosition :: (Int, Int)
-    }
+                    jsMousePosition :: (Int, Int)
+                  }
+                  deriving Show
 data JSResponse = JSInit
                 | JSLabelCreateResp
                 | JSDeComp (Event JSResponse,Event JSResponse)
@@ -139,7 +140,8 @@ startGUI (JSGUI g) = do
     epoch <- getCurrentTime
     gsr <- newIORef epoch
     rh <- reactInit initSense (actuate gsr) g
-    addEvent (stringToJSString "") (stringToJSString "timeout") gsr rh NoEvent
+    addEvent "timeout" $ respond gsr rh NoEvent
+    -- addEvent "timeout" $ putStrLn "hola"
     return ()
 
 -- Get an input sample from the OS.
@@ -160,7 +162,9 @@ respond :: JSGUIRef -> JSRHandle -> Event JSResponse -> IO ()
 respond gsr rh resp = do
   -- Obtain input sample.
   prevt <- readIORef gsr
+  putStrLn $ show prevt
   inp <- getRawInput
+  putStrLn $ show inp
   
   -- Make sure time's elapsed since the last call to react.
   -- With the timer set up in startGUI, this is probably
@@ -178,6 +182,8 @@ actuate :: JSGUIRef -> JSRHandle -> Bool -> (Event JSRequest,()) -> IO Bool
 actuate gsr rh _ (wre,_) = 
   do -- Handle requests, if any.
      t <- readIORef gsr
+     putStrLn "actuate"
+     putStrLn $ show t
      resp <- handleWidgetReq gsr rh wre
      
      -- Reset layout if contents changed.
@@ -188,7 +194,6 @@ actuate gsr rh _ (wre,_) =
      case resp of
        NoEvent -> return ()
        _ -> respond gsr rh resp
-     
      return False
 
 
@@ -204,17 +209,48 @@ handleWidgetReq _ _ (Event (JSLabelSetReq t))    = do
 ------------------------------------------------------------------
 -- Utility functions from Yampa, UHC blog and Javascript reference
 
-
+-- String related
 type JSString = PackedString
-stringToJSString :: String -> JSString
+foreign import prim "primStringToPackedString" stringToJSString :: String -> JSString
 jsStringToString :: JSString -> String
+jsStringToString = packedStringToString
 
-foreign import jscript "getCurrentTime()" getCurrentTime :: IO Int
-foreign import jscript "mouseX()"         getMouseX      :: IO Int
-foreign import jscript "mouseY()"         getMouseY      :: IO Int
-foreign import jscript "addEvent(%*)"     addEvent       :: JSString -> JSString -> JSGUIRef -> JSRHandle -> Event JSResponse -> IO ()
-foreign import jscript "changeText(%*)"   changeText     :: JSString -> JSString -> IO ()
+foreign import jscript "lib.getCurrentTime()" getCurrentTime :: IO Int
+foreign import jscript "lib.mouseX()"         getMouseX      :: IO Int
+foreign import jscript "lib.mouseY()"         getMouseY      :: IO Int
+foreign import jscript "lib.changeText(%*)"   changeText     :: JSString -> JSString -> IO ()
+foreign import jscript "window.alert(%*)"     alert          :: JSString -> IO ()
 
+foreign import jscript "lib.setState(%*)" setState' :: IORef [(String, IO ())] -> IO ()
+foreign import jscript "lib.getState()"   getState' :: IO (IORef [(String, IO ())])
+foreign import jscript "lib.addEvent(%*)" addEvent' :: JSString -> IO ()
+
+initEvents :: IO ()
+initEvents = do ref <- newIORef []
+                setState' ref
+
+setState :: [(String, IO ())] -> IO ()
+setState s = do ref <- getState'
+                info <- readIORef ref
+                ref <- newIORef s
+                setState' ref
+
+getState :: IO [(String, IO ())]
+getState = do ref <- getState'
+              readIORef ref
+
+addEvent :: String -> IO () -> IO ()
+addEvent w_id cb = do s <- getState
+                      setState $ (w_id, cb) : s
+                      addEvent' (stringToJSString w_id)
+
+foreign export jscript "eventCallback" eventCallback :: JSString -> IO ()
+eventCallback w_id = do s <- getState
+                        let w_id' = jsStringToString w_id
+                        case lookup w_id' s of
+                          Nothing -> return ()
+                          Just cb -> do _ <- cb
+                                        return ()
 
 ------------------------------------
 -- Fake code for compiling in GHC --
@@ -254,7 +290,7 @@ maybeChanged s s' = if s == s' then Nothing else Just ()
 --   t1 :: Int -- current time, in milliseconds
 --   getTime :: IO Int -- returns the current time, in milliseconds
 -- result: (dtf,t1)
---   dtf -- the elapsed time since last sample, in seconds, as a Float
+--   dtf -- the elapsed time since last sample, in seconds, as a Floatforeign export jscript "jQueryMain" jQueryMain :: IO ()
 --   t1 -- the current time, in millisec.
 --
 -- We perform the floating point conversion, and perform our comparison
@@ -277,9 +313,15 @@ ensureTimeElapses t0 t1 getTime = do
 
 example :: JSGUI () ()
 example = proc _ -> do
-    rec mpos <- jsMouse -< ()
-        _ <- jsLabel (div_ "example") -< (label $ show (fst mpos))
+    mpos <- jsMouse -< ()
+    -- _ <- jsLabel (div_ "example") -< (label $ show (fst mpos))
     returnA -< ()
 
+jQueryMain :: IO ()
+jQueryMain = do initEvents
+                startGUI example
+
+foreign export jscript "jQueryMain" jQueryMain :: IO ()
+
 main :: IO ()
-main = startGUI example
+main = return ()

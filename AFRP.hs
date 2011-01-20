@@ -1336,10 +1336,10 @@ loopIntegral sf = loop (second integral >>> sf)
 -- sf .........	Signal function to reactimate.
 
 reactimate :: IO a
-	      -> (Bool -> IO (DTime, Maybe a))
-	      -> (Bool -> b -> IO Bool)
-              -> SF a b
-	      -> IO ()
+	       -> (Bool -> IO (DTime, Maybe a))
+	       -> (Bool -> b -> IO Bool)
+           -> SF a b
+	       -> IO ()
 reactimate init sense actuate (SF {sfTF = tf0}) =
     do
         a0 <- init
@@ -1349,10 +1349,12 @@ reactimate init sense actuate (SF {sfTF = tf0}) =
         loop sf a b = do
 	    done <- actuate True b
             unless (a `seq` b `seq` done) $ do
-	        (dt, ma') <- sense False
-		let a' = maybe a id ma'
-                    (sf', b') = (sfTF' sf) dt a'
-		loop sf' a' b'
+	        (dt, ma_prime) <- sense False
+		let a_prime = maybe a id ma_prime
+                    (sf_prime, b_prime) = (sfTF' sf) dt a_prime
+		loop sf_prime a_prime b_prime
+
+
 
 -- An API for animating a signal function when some other library
 -- needs to own the top-level control flow:
