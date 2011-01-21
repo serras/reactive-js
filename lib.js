@@ -1,6 +1,19 @@
 var lib=
  (lib ? lib : {});
 
+lib.thread_start = function(callback) {
+  var exitCondition, onEnd, onKill;
+  exitCondition = function(t){
+    return true;
+  };
+  onEnd = onKill = function(t){
+    // Do nothing
+  };
+  
+  var jThread = new JThread(callback, exitCondition, onEnd, onKill);
+  jThread.run();
+}
+
 lib.alert = function(s) {
     window.alert(s);
 };
@@ -39,17 +52,23 @@ lib.mousePosition = function() {
 };
 
 lib.mouseX = function() {
+    return Math.floor(Math.random() * 20);
+    
     var position = lib.mousePosition();
     return position[0];
 };
 
 lib.mouseY = function() {
+    return Math.floor(Math.random() * 20);
+    
     var position = lib.mousePosition();
     return position[1];
 };
 
 lib.changeText = function(div, text) {
-    document.getElementById(div).innerHTML = text;
+    lib.thread_start(function() {
+      document.getElementById(div).innerHTML = text;
+    });
 };
 
 lib.state = undefined;
@@ -63,8 +82,10 @@ lib.getState = function() {
 lib.addEvent = function(ev_name) {
     if (ev_name == "timeout") {
         var closure = function() {
-            eventCallback(ev_name);
+            lib.thread_start(function() {
+              eventCallback(ev_name);
+            });
         };
-        setTimeout(closure, 30);
+        setInterval(closure, 1000);
     }
 };

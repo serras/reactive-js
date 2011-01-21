@@ -18,9 +18,12 @@ data JSRawInput = JSRawInput {
                   deriving Show
 data JSResponse = JSInit
                 | JSLabelCreateResp
+                | JSTimeoutCreateResp
+                | JSTimeoutTickResp
                 | JSDeComp (Event JSResponse,Event JSResponse)
 data JSRequest  = JSLabelCreateReq JSLabelState
                 | JSLabelSetReq JSLabelState
+                | JSTimeoutReq JSTimeoutState
                 | JSComp (Event JSRequest,Event JSRequest)
 
 type Responder a b = SF (JSRawInput, Event JSResponse, a) (Event JSRequest, b)
@@ -101,7 +104,7 @@ label text ls = ls {labelText = text}
 div_ :: String -> JSLabelConf
 div_ div ls = ls {labelDiv = div}
 
--- The label GUI
+-- The label widget
 
 jsLabel :: JSLabelConf -> JSGUI JSLabelConf ()
 jsLabel conf0 = 
@@ -127,9 +130,69 @@ jsLabel conf0 =
                      (tag stateChanged (JSLabelSetReq state))
     returnA -< (req,())
 
+-- The mouse widget
+
 jsMouse :: JSGUI () (Int, Int)
 jsMouse = JSGUI $ proc (inp,_,_) -> do
   returnA -< (noEvent, jsMousePosition inp)
+
+-- The timeout widget
+
+data JSTimeoutState = JSTimeoutState {
+     timeoutId   :: String,
+     timeoutTime :: Int
+  } deriving (Eq, Show)
+
+type JSTimeoutConf = JSTimeoutState -> JSTimeoutState
+
+timeId :: String -> JSTimeoutConf
+timeId id ts = ts {timeoutId = id}
+
+time :: Int -> JSTimeoutConf
+time t ts = ts {timeoutTime = t}
+
+jsTimeout :: JSTimeoutConf -> JSGUI JSTimeoutConf (Event ())
+jsTimeout conf0 =
+  let -- Initial state
+      defState = JSTimeoutState {timeoutId = "timeout", timeoutTime = 1000}
+      initState = conf0 defState
+      
+      -- Detect creation
+      maybeCreate JSTimeoutCreateResp = Just True
+      maybeCreate _ = Nothing
+      
+      -- Detect timeout tick
+      maybeTick JSTimeoutTickResp = Just ()
+      maybeTick _ = Nothing
+  
+  in JSGUI $ proc (_,resp,conf) -> do
+    -- Keep track of the state.
+    rec state <- iPre initState -< conf state
+    
+    -- Has the state changed?  If so, generate set request.
+    stateChanged <- edgeBy maybeChanged initState -< state
+    
+    isCreated <- hold False -< mapFilterE maybeCreate resp
+        
+    -- Send a creation request if we haven't been created yet.
+    -- WARNING: this is probably a bad way to do this.  It can
+    -- create an infinitely-dense stream of Events, which is a
+    -- big no-no in the AFRP world (at least, conceptually).
+    -- We used to use WXWInit for this purpose, but with the
+    -- dynamic switching of widgets, the system wouldn't know
+    -- when to send the WXWInit events to widgets that have
+    -- been switched-into.
+    let doCreate = if isCreated then noEvent else Event (JSTimeoutReq state)
+    
+    -- Merge create/set requests.
+    let req = tag doCreate (JSTimeoutReq state)
+    
+    -- Pass button presses through.
+    let tick = mapFilterE maybeTick resp
+    
+    returnA -< (req,tick)
+
+-- Internal GUI state
 
 type JSGUIState = Int
 type JSGUIRef = IORef JSGUIState
@@ -140,8 +203,7 @@ startGUI (JSGUI g) = do
     epoch <- getCurrentTime
     gsr <- newIORef epoch
     rh <- reactInit initSense (actuate gsr) g
-    addEvent "timeout" $ respond gsr rh NoEvent
-    -- addEvent "timeout" $ putStrLn "hola"
+    -- addEvent "timeout" $ respond gsr rh NoEvent
     return ()
 
 -- Get an input sample from the OS.
@@ -162,9 +224,9 @@ respond :: JSGUIRef -> JSRHandle -> Event JSResponse -> IO ()
 respond gsr rh resp = do
   -- Obtain input sample.
   prevt <- readIORef gsr
-  putStrLn $ show prevt
+  -- putStrLn $ show prevt
   inp <- getRawInput
-  putStrLn $ show inp
+  -- putStrLn $ show inp
   
   -- Make sure time's elapsed since the last call to react.
   -- With the timer set up in startGUI, this is probably
@@ -180,10 +242,10 @@ respond gsr rh resp = do
 -- Process an output sample (i.e. a widget request).
 actuate :: JSGUIRef -> JSRHandle -> Bool -> (Event JSRequest,()) -> IO Bool
 actuate gsr rh _ (wre,_) = 
-  do -- Handle requests, if any.
+  do -- Handle requests, if any.  
      t <- readIORef gsr
-     putStrLn "actuate"
-     putStrLn $ show t
+     -- putStrLn "actuate"
+     -- putStrLn $ show t
      resp <- handleWidgetReq gsr rh wre
      
      -- Reset layout if contents changed.
@@ -198,12 +260,41 @@ actuate gsr rh _ (wre,_) =
 
 
 handleWidgetReq :: JSGUIRef -> JSRHandle -> (Event JSRequest) -> IO (Event JSResponse)
-handleWidgetReq _ _ NoEvent                      = return NoEvent
+handleWidgetReq _ _ NoEvent                      = do
+    -- alert $ stringToJSString "No event"
+    return NoEvent
 handleWidgetReq _ _ (Event (JSLabelCreateReq t)) = do
-    changeText (stringToJSString . labelDiv $ t) (stringToJSString . labelText $ t)
+    -- alert $ stringToJSString "Label create"
+    let ldiv  = labelDiv t
+    -- alert $ stringToJSString "Label div obtained"
+    let ltext = labelText t
+    -- alert $ stringToJSString "Label text obtained"
+    changeText (stringToJSString ldiv) (stringToJSString ltext)
+    -- alert $ stringToJSString "Label created"
     return $ Event JSLabelCreateResp
 handleWidgetReq _ _ (Event (JSLabelSetReq t))    = do
-    changeText (stringToJSString . labelDiv $ t) (stringToJSString . labelText $ t)
+    -- alert $ stringToJSString "Label set"
+    -- alert $ stringToJSString "Label create"
+    let ldiv  = labelDiv t
+    -- alert $ stringToJSString "Label div obtained"
+    let ltext = labelText t
+    -- alert $ stringToJSString "Label text obtained"
+    changeText (stringToJSString ldiv) (stringToJSString ltext)
+    -- alert $ stringToJSString "Label set"
+    return NoEvent
+handleWidgetReq gsr rh (Event (JSTimeoutReq t))  = do
+    -- alert $ stringToJSString "timeout"
+    addEvent "timeout" $ respond gsr rh (Event JSTimeoutTickResp)
+    return $ Event JSTimeoutCreateResp
+handleWidgetReq gsr rh (Event (JSComp (lreq, rreq))) = do
+    -- alert $ stringToJSString "comp"
+    lresp <- handleWidgetReq gsr rh lreq
+    rresp <- handleWidgetReq gsr rh rreq
+    return $ case (lresp, rresp) of
+               (NoEvent, NoEvent) -> noEvent
+               resp -> Event (JSDeComp resp)
+handleWidgetReq _ _ _ = do
+    -- alert $ stringToJSString "nothing"
     return NoEvent
 
 ------------------------------------------------------------------
@@ -313,8 +404,11 @@ ensureTimeElapses t0 t1 getTime = do
 
 example :: JSGUI () ()
 example = proc _ -> do
-    mpos <- jsMouse -< ()
-    -- _ <- jsLabel (div_ "example") -< (label $ show (fst mpos))
+    rec mpos <- jsMouse -< ()
+        tick <- jsTimeout ((timeId "example_time") . (time 3000)) -< id
+        -- sum <- edgeTag (+1) -< tick
+        -- count <- accum 1 -< sum
+        _ <- jsLabel (div_ "example_count") -< (label $ show mpos)
     returnA -< ()
 
 jQueryMain :: IO ()

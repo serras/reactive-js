@@ -39,11 +39,28 @@
 <script type="text/javascript" src="AFRPDiagnostics.mjs"></script>
 <script type="text/javascript" src="AFRPEvent.mjs"></script>
 <script type="text/javascript" src="AFRP.mjs"></script>
+<script type="text/javascript" src="JThread.js"></script>
 <script type="text/javascript" src="Example.no-arrows.js"></script>
 <script type="text/javascript">
-$(document).ready(jQueryMain);
+
+var loopBody, exitCondition, onEnd, onKill;
+loopBody = function(t){
+  jQueryMain();
+};
+exitCondition = function(t){
+  return true;
+};
+onEnd = onKill = function(t){
+  alert("Something strange happened");
+};
+                    
+var jThread = new JThread(loopBody, exitCondition, onEnd, onKill);
+$(document).ready(jThread.run());
 </script>
 </head>
 <body>
+
+<div id="example_count"> </div>
+
 </body>
 </html>
