@@ -23,6 +23,21 @@ lib.getCurrentTime = function() {
     return d.getTime();
 };
 
+lib.getCurrentHours = function() {
+    var d = new Date();
+    return d.getHours();
+};
+
+lib.getCurrentMinutes = function() {
+    var d = new Date();
+    return d.getMinutes();
+};
+
+lib.getCurrentSeconds = function() {
+    var d = new Date();
+    return d.getSeconds();
+};
+
 lib.mousePosition = function() {
     /* var posx = 0;
 	var posy = 0;
@@ -52,22 +67,36 @@ lib.mousePosition = function() {
 };
 
 lib.mouseX = function() {
+    return 1;
+
     return Math.floor(Math.random() * 20);
-    
+
     var position = lib.mousePosition();
     return position[0];
 };
 
 lib.mouseY = function() {
+    return 2;
+
     return Math.floor(Math.random() * 20);
-    
+
     var position = lib.mousePosition();
     return position[1];
 };
 
-lib.changeText = function(div, text) {
+lib.changeDiv = function(div, text) {
     lib.thread_start(function() {
-      document.getElementById(div).innerHTML = text;
+      try {
+        document.getElementById(div).innerHTML = text;
+      } catch (err) { }
+    });
+};
+
+lib.changeButtonText = function(div, text) {
+    lib.thread_start(function() {
+      try {
+        document.getElementById(div).value = text;
+      } catch (err) { }
     });
 };
 
@@ -79,13 +108,24 @@ lib.getState = function() {
     return lib.state;
 };
 
-lib.addEvent = function(ev_name) {
+lib.addEvent = function(ev_name, params) {
     if (ev_name == "timeout") {
         var closure = function() {
-            lib.thread_start(function() {
-              eventCallback(ev_name);
-            });
+            eventCallback(ev_name);
         };
         setInterval(closure, 1000);
+    }
+    if (ev_name == "lifebeat") {
+        var closure = function() {
+            eventCallback(ev_name);
+        };
+        setInterval(closure, 100);
+    }
+    if (ev_name == "click") {
+        var closure = function() {
+            eventCallback(ev_name);
+        };
+        alert("Zas");
+        $(params).click(closure);
     }
 };
